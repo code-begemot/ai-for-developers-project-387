@@ -19,14 +19,16 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'bash -c "cd ../backend && . venv/bin/activate && python main.py"',
+      command: 'cd ../backend && ./venv/bin/python main.py',
       url: 'http://localhost:8000/event-types',
       reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
     },
     {
       command: 'npm run build && npx vite preview --port 3000',
       url: 'http://localhost:3000',
       reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
     },
   ],
 });
