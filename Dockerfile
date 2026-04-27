@@ -11,8 +11,7 @@ WORKDIR /app
 COPY calendar-booking/backend/ backend/
 COPY calendar-booking/frontend/ frontend/
 
-RUN cd backend && python -m venv venv && \
-    ./venv/bin/pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
 
 RUN cd frontend && npm ci && npm run build && \
     cp -r dist ../backend/dist
@@ -21,4 +20,4 @@ WORKDIR /app/backend
 
 ENV PORT=8000
 
-CMD ./venv/bin/uvicorn main:app --host 0.0.0.0 --port ${PORT}
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
