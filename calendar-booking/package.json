@@ -1,0 +1,12 @@
+{
+  "name": "calendar-booking-spec",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "compile": "tsp compile"
+  },
+  "devDependencies": {
+    "@typespec/compiler": "^1.0.0",
+    "@typespec/openapi3": "^1.0.0"
+  }
+}
