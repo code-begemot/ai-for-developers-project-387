@@ -1,0 +1,250 @@
+openapi: 3.0.0
+info:
+  title: Calendar Booking API
+  version: 1.0.0
+  description: API for calendar booking system with admin and guest access
+tags: []
+paths:
+  /admin/bookings:
+    get:
+      operationId: AdminBookings_getBookings
+      parameters:
+        - name: fromDate
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+        - name: toDate
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+  /admin/event-types:
+    get:
+      operationId: AdminEventTypes_getEventTypes
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+    post:
+      operationId: AdminEventTypes_createEventType
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/EventType'
+                  - $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventTypeCreate'
+  /admin/event-types/{id}:
+    delete:
+      operationId: AdminEventTypes_deleteEventType
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+  /bookings:
+    post:
+      operationId: Bookings_createBooking
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - $ref: '#/components/schemas/Booking'
+                  - $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestBookingRequest'
+  /event-types:
+    get:
+      operationId: EventTypes_getEventTypes
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+  /slots:
+    get:
+      operationId: Slots_getSlots
+      parameters:
+        - name: eventTypeId
+          in: query
+          required: true
+          schema:
+            type: string
+          explode: false
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Slot'
+                  - $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    Booking:
+      type: object
+      required:
+        - id
+        - eventTypeId
+        - eventTypeName
+        - slotStart
+        - slotEnd
+        - guestName
+        - guestEmail
+        - createdAt
+      properties:
+        id:
+          type: string
+        eventTypeId:
+          type: string
+        eventTypeName:
+          type: string
+        slotStart:
+          type: integer
+          format: int64
+        slotEnd:
+          type: integer
+          format: int64
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+        createdAt:
+          type: integer
+          format: int64
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    EventType:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    EventTypeCreate:
+      type: object
+      required:
+        - name
+        - description
+        - durationMinutes
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    GuestBookingRequest:
+      type: object
+      required:
+        - eventTypeId
+        - slotStart
+        - guestName
+        - guestEmail
+      properties:
+        eventTypeId:
+          type: string
+        slotStart:
+          type: integer
+          format: int64
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+        - available
+      properties:
+        start:
+          type: integer
+          format: int64
+        end:
+          type: integer
+          format: int64
+        available:
+          type: boolean
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+    variables: {}

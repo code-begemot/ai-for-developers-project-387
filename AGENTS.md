@@ -24,6 +24,7 @@ cd calendar-booking/frontend
 npm install
 npm run dev             # starts Vite on :3000
 npm run build           # tsc + vite build
+npm run test-e2e        # Playwright e2e tests
 ```
 
 ### API Spec (TypeSpec)
@@ -39,9 +40,17 @@ cd calendar-booking/frontend
 npm run prism           # mocks API from openapi.yaml on :4011
 ```
 
+### E2E Tests (Playwright)
+```bash
+cd calendar-booking/frontend
+npx playwright test     # runs e2e tests (auto-starts backend + frontend)
+npx playwright test --ui  # interactive UI mode
+```
+
 ## Key Constraints
 - Backend uses **in-memory storage** (`event_types_db`, `bookings_db` dicts) — data resets on restart.
-- No test suite exists yet; CI is managed by Hexlet via `.github/workflows/hexlet-check.yml` — **do not modify**.
+- E2E tests require both backend and frontend running; `playwright.config.ts` handles this via `webServer`.
+- CI: `.github/workflows/hexlet-check.yml` — **do not modify**. `.github/workflows/e2e.yml` runs Playwright on push/PR to main.
 - Do not delete, edit, or rename the repository.
 
 ## Conventions
