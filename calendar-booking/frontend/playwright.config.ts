@@ -17,17 +17,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: [
+  webServer: process.env.CI ? [] : [
     {
       command: 'cd ../backend && ./venv/bin/python main.py',
       url: 'http://localhost:8000/event-types',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       timeout: 60_000,
     },
     {
       command: 'npm run build && npx vite preview --port 3000',
       url: 'http://localhost:3000',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: true,
       timeout: 60_000,
     },
   ],
