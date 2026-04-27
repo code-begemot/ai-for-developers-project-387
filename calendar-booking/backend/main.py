@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, EmailStr
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -65,30 +66,30 @@ def generate_slots(event_type_id: str, date: str) -> list[Slot]:
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
         return []
-    
+
     slots = []
     now = datetime.utcnow()
-    
+
     for hour in range(WORKING_HOURS_START, WORKING_HOURS_END):
         for minute in [0, 30]:
             start_dt = datetime.combine(date_obj, datetime.min.time().replace(hour=hour, minute=minute))
             start_ts = int(start_dt.timestamp() * 1000)
             end_ts = start_ts + SLOT_DURATION_MINUTES * 60 * 1000
-            
+
             if start_ts < int(now.timestamp() * 1000):
                 continue
-            
+
             is_booked = any(
-                b.slotStart == start_ts 
+                b.slotStart == start_ts
                 for b in bookings_db.values()
             )
-            
+
             slots.append(Slot(
                 start=start_ts,
                 end=end_ts,
                 available=not is_booked
             ))
-    
+
     return slots
 
 @app.get("/event-types", response_model=list[EventType])
@@ -108,16 +109,16 @@ def get_slots(
 def create_booking(request: GuestBookingRequest):
     if request.eventTypeId not in event_types_db:
         raise HTTPException(status_code=400, detail="Invalid event type")
-    
+
     event_type = event_types_db[request.eventTypeId]
-    
+
     slot_duration_ms = event_type.durationMinutes * 60 * 1000
     slot_end = request.slotStart + slot_duration_ms
-    
+
     for booking in bookings_db.values():
         if booking.slotStart == request.slotStart:
             raise HTTPException(status_code=409, detail="Slot already booked")
-    
+
     now_ts = int(datetime.utcnow().timestamp() * 1000)
     booking = Booking(
         id=str(uuid.uuid4()),
@@ -129,7 +130,7 @@ def create_booking(request: GuestBookingRequest):
         guestEmail=request.guestEmail,
         createdAt=now_ts
     )
-    
+
     bookings_db[booking.id] = booking
     return booking
 
@@ -160,17 +161,22 @@ def get_admin_bookings(
     toDate: Optional[str] = Query(None)
 ):
     bookings = list(bookings_db.values())
-    
+
     if fromDate:
         from_ts = int(datetime.strptime(fromDate, "%Y-%m-%d").timestamp() * 1000)
         bookings = [b for b in bookings if b.slotStart >= from_ts]
-    
+
     if toDate:
         to_ts = int(datetime.strptime(toDate, "%Y-%m-%d").timestamp() * 1000) + 86400000
         bookings = [b for b in bookings if b.slotStart < to_ts]
-    
+
     return bookings
+
+dist_path = os.path.join(os.path.dirname(__file__), "dist")
+if os.path.exists(dist_path):
+    app.mount("/", StaticFiles(directory=dist_path, html=True))
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

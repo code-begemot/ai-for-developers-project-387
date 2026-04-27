@@ -4,10 +4,10 @@
 Calendar booking system (Hexlet project). Monorepo under `calendar-booking/` with a Python FastAPI backend, React frontend, and TypeSpec API contract.
 
 ## Architecture
-- **Backend** (`calendar-booking/backend/`): FastAPI + uvicorn, in-memory dicts (no DB). Runs on `localhost:8000`.
-- **Frontend** (`calendar-booking/frontend/`): React 18 + Vite + TypeScript + Mantine 7. Runs on `localhost:3000`.
+- **Backend** (`calendar-booking/backend/`): FastAPI + uvicorn, in-memory dicts (no DB). Runs on `localhost:8000`. Serves frontend static files from `dist/` in production.
+- **Frontend** (`calendar-booking/frontend/`): React 18 + Vite + TypeScript + Mantine 7. Runs on `localhost:3000` in dev.
 - **API spec** (`calendar-booking/specs/main.tsp`): TypeSpec contract. Compiles to `calendar-booking/openapi/openapi.yaml`.
-- Frontend proxies `/api/*` → `http://localhost:8000/*` (see `vite.config.ts`).
+- Frontend proxies `/api/*` → `http://localhost:8000/*` in dev (see `vite.config.ts`).
 
 ## Developer Commands
 
@@ -47,10 +47,17 @@ npx playwright test     # runs e2e tests (auto-starts backend + frontend)
 npx playwright test --ui  # interactive UI mode
 ```
 
+### Docker
+```bash
+docker build -t calendar-booking .
+docker run -p 8000:8000 calendar-booking
+```
+
 ## Key Constraints
 - Backend uses **in-memory storage** (`event_types_db`, `bookings_db` dicts) — data resets on restart.
-- E2E tests require both backend and frontend running; `playwright.config.ts` handles this via `webServer`.
-- CI: `.github/workflows/hexlet-check.yml` — **do not modify**. `.github/workflows/e2e.yml` runs Playwright on push/PR to main.
+- E2E tests: `playwright.config.ts` auto-starts backend (uvicorn) and frontend (vite preview) via `webServer`.
+- CI: `.github/workflows/hexlet-check.yml` — **do not modify or delete**.
+- Docker image reads port from `PORT` env var (default 8000).
 - Do not delete, edit, or rename the repository.
 
 ## Conventions
