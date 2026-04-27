@@ -38,22 +38,22 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: calendar-booking/frontend
 
-      - name: Start backend
-        run: ./venv/bin/python main.py &
-        working-directory: calendar-booking/backend
-
-      - name: Build and start frontend
-        run: npm run build && npx vite preview --port 3000 &
-        working-directory: calendar-booking/frontend
-
-      - name: Wait for servers
+      - name: Start servers
         run: |
+          nohup ./venv/bin/python main.py > /tmp/backend.log 2>&1 &
+          cd ../frontend && npm run build
+          nohup npx vite preview --port 3000 > /tmp/frontend.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://localhost:8000/event-types > /dev/null && curl -sf http://localhost:3000 > /dev/null && echo "Servers ready" && exit 0
             sleep 1
           done
           echo "Servers failed to start"
+          echo "=== Backend log ==="
+          cat /tmp/backend.log
+          echo "=== Frontend log ==="
+          cat /tmp/frontend.log
           exit 1
+        working-directory: calendar-booking/backend
 
       - name: Run Playwright tests
         run: npx playwright test
