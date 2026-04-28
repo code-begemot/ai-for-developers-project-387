@@ -1,3 +1,9 @@
+"""Calendar Booking System - FastAPI backend.
+
+Provides REST API endpoints for managing event types, generating available
+time slots, and creating/retrieving bookings. Uses in-memory storage.
+"""
+
 import os
 import uuid
 from datetime import datetime, timedelta
@@ -23,23 +29,27 @@ SLOT_DURATION_MINUTES = 30
 BOOKING_WINDOW_DAYS = 14
 
 class EventTypeCreate(BaseModel):
+    """Request body for creating a new event type."""
     name: str
     description: str
     durationMinutes: int
 
 class EventType(BaseModel):
+    """Represents an event type with its configuration."""
     id: str
     name: str
     description: str
     durationMinutes: int
 
 class GuestBookingRequest(BaseModel):
+    """Request body for a guest booking."""
     eventTypeId: str
     slotStart: int
     guestName: str
     guestEmail: EmailStr
 
 class Booking(BaseModel):
+    """Represents a confirmed booking with guest details."""
     id: str
     eventTypeId: str
     eventTypeName: str
@@ -50,11 +60,13 @@ class Booking(BaseModel):
     createdAt: int
 
 class Slot(BaseModel):
+    """Represents a time slot with availability status."""
     start: int
     end: int
     available: bool
 
 class ErrorResponse(BaseModel):
+    """Standard error response body."""
     code: str
     message: str
 
@@ -62,6 +74,11 @@ event_types_db: dict[str, EventType] = {}
 bookings_db: dict[str, Booking] = {}
 
 def generate_slots(event_type_id: str, date: str) -> list[Slot]:
+    """Generate available 30-minute time slots for a given date.
+
+    Slots are created within working hours (09:00-18:00) and filtered
+    to exclude past times and already-booked slots.
+    """
     try:
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
@@ -94,6 +111,7 @@ def generate_slots(event_type_id: str, date: str) -> list[Slot]:
 
 @app.get("/event-types", response_model=list[EventType])
 def get_event_types():
+    """Return all public event types."""
     return list(event_types_db.values())
 
 @app.get("/slots", response_model=list[Slot])
@@ -101,12 +119,14 @@ def get_slots(
     eventTypeId: str = Query(...),
     date: str = Query(...)
 ):
+    """Return available time slots for a given event type and date."""
     if eventTypeId not in event_types_db:
         raise HTTPException(status_code=400, detail="Invalid event type")
     return generate_slots(eventTypeId, date)
 
 @app.post("/bookings", response_model=Booking, status_code=201)
 def create_booking(request: GuestBookingRequest):
+    """Create a new booking for an available time slot."""
     if request.eventTypeId not in event_types_db:
         raise HTTPException(status_code=400, detail="Invalid event type")
 
@@ -136,10 +156,12 @@ def create_booking(request: GuestBookingRequest):
 
 @app.get("/admin/event-types", response_model=list[EventType])
 def get_admin_event_types():
+    """Return all event types for admin view."""
     return list(event_types_db.values())
 
 @app.post("/admin/event-types", response_model=EventType, status_code=201)
 def create_event_type(request: EventTypeCreate):
+    """Create a new event type."""
     event_type = EventType(
         id=str(uuid.uuid4()),
         name=request.name,
@@ -151,6 +173,7 @@ def create_event_type(request: EventTypeCreate):
 
 @app.delete("/admin/event-types/{id}", status_code=204)
 def delete_event_type(id: str):
+    """Delete an event type by ID."""
     if id not in event_types_db:
         raise HTTPException(status_code=404, detail="Event type not found")
     del event_types_db[id]
@@ -160,6 +183,7 @@ def get_admin_bookings(
     fromDate: Optional[str] = Query(None),
     toDate: Optional[str] = Query(None)
 ):
+    """Return all bookings, optionally filtered by date range."""
     bookings = list(bookings_db.values())
 
     if fromDate:
