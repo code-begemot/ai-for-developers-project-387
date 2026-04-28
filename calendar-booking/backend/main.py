@@ -164,18 +164,7 @@ def get_slots(
     eventTypeId: str = Query(...),
     date: str = Query(...)
 ):
-    """Return available time slots for a given event type and date.
-
-    Args:
-        eventTypeId: ID of the event type to fetch slots for.
-        date: Target date in "YYYY-MM-DD" format.
-
-    Returns:
-        A list of Slot objects for the specified date.
-
-    Raises:
-        HTTPException: 400 if the eventTypeId does not exist.
-    """
+    """Return available time slots for a given event type and date."""
     if eventTypeId not in event_types_db:
         raise HTTPException(status_code=400, detail="Invalid event type")
     return generate_slots(eventTypeId, date)
