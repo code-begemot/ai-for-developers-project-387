@@ -1,0 +1,332 @@
+openapi: 3.0.3
+info:
+  title: Calendar Booking API
+  version: 1.0.0
+  description: |
+    API for calendar booking system with admin and guest access.
+    
+    ## Business Rules
+    
+    - Working hours: 09:00 - 18:00 UTC
+    - Slot duration: 30 minutes
+    - Booking window: 14 days from current date
+    - One slot = one booking (regardless of event type)
+    - Email: simple format validation
+    
+    ## Roles
+    
+    - **Owner**: Pre-configured profile, uses admin endpoints
+    - **Guest**: Books slots without authentication
+    
+    ## Data Format
+    
+    - Query parameters for dates: YYYY-MM-DD
+    - Timestamps: Unix milliseconds (UTC)
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+paths:
+  /event-types:
+    get:
+      operationId: getEventTypes
+      summary: Get all event types (public)
+      description: Returns list of available event types for guests
+      tags:
+        - Guest
+      responses:
+        '200':
+          description: List of event types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+  /slots:
+    get:
+      operationId: getSlots
+      summary: Get available slots for a specific date
+      description: |
+        Returns available slots for the given event type and date.
+        Slots are generated from 09:00 to 18:00 UTC in 30-minute intervals.
+        Only slots within the 14-day booking window are returned.
+        Slot availability considers all existing bookings.
+      tags:
+        - Guest
+      parameters:
+        - name: eventTypeId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Event type ID
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Date in YYYY-MM-DD format
+      responses:
+        '200':
+          description: List of available slots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+        '400':
+          description: Bad request (invalid date or event type)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /bookings:
+    post:
+      operationId: createBooking
+      summary: Create a new booking (guest)
+      description: |
+        Creates a booking for the specified slot.
+        The slot must be within the 14-day booking window and available.
+        One slot can only have one booking at a time.
+      tags:
+        - Guest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestBookingRequest'
+      responses:
+        '201':
+          description: Booking created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: Bad request (invalid input or slot not in window)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict (slot already booked)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/event-types:
+    get:
+      operationId: adminGetEventTypes
+      summary: Get all event types (owner)
+      description: Returns all event types configured by the owner
+      tags:
+        - Owner
+      responses:
+        '200':
+          description: List of event types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+    post:
+      operationId: createEventType
+      summary: Create a new event type (owner)
+      description: Creates a new event type with name, description and duration
+      tags:
+        - Owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventTypeCreate'
+      responses:
+        '201':
+          description: Event type created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        '400':
+          description: Bad request (invalid input)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/event-types/{id}:
+    delete:
+      operationId: deleteEventType
+      summary: Delete an event type (owner)
+      description: Deletes an event type by ID
+      tags:
+        - Owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Event type ID
+      responses:
+        '204':
+          description: Event type deleted successfully
+        '404':
+          description: Event type not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /admin/bookings:
+    get:
+      operationId: adminGetBookings
+      summary: Get all bookings (owner)
+      description: Returns all bookings, optionally filtered by date range
+      tags:
+        - Owner
+      parameters:
+        - name: fromDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Start date filter (YYYY-MM-DD)
+        - name: toDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: End date filter (YYYY-MM-DD)
+      responses:
+        '200':
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+components:
+  schemas:
+    EventType:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the event type
+        name:
+          type: string
+          description: Display name of the event type
+        description:
+          type: string
+          description: Description of the event type
+        durationMinutes:
+          type: integer
+          format: int32
+          description: Duration of the event in minutes
+    EventTypeCreate:
+      type: object
+      required:
+        - name
+        - description
+        - durationMinutes
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: integer
+          format: int32
+    Booking:
+      type: object
+      required:
+        - id
+        - eventTypeId
+        - eventTypeName
+        - slotStart
+        - slotEnd
+        - guestName
+        - guestEmail
+        - createdAt
+      properties:
+        id:
+          type: string
+        eventTypeId:
+          type: string
+        eventTypeName:
+          type: string
+        slotStart:
+          type: integer
+          format: int64
+          description: Start timestamp in UTC (milliseconds)
+        slotEnd:
+          type: integer
+          format: int64
+          description: End timestamp in UTC (milliseconds)
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+        createdAt:
+          type: integer
+          format: int64
+          description: Creation timestamp in UTC (milliseconds)
+    GuestBookingRequest:
+      type: object
+      required:
+        - eventTypeId
+        - slotStart
+        - guestName
+        - guestEmail
+      properties:
+        eventTypeId:
+          type: string
+        slotStart:
+          type: integer
+          format: int64
+          description: Slot start timestamp in UTC (milliseconds)
+        guestName:
+          type: string
+        guestEmail:
+          type: string
+          format: email
+    Slot:
+      type: object
+      required:
+        - start
+        - end
+        - available
+      properties:
+        start:
+          type: integer
+          format: int64
+          description: Slot start timestamp in UTC (milliseconds)
+        end:
+          type: integer
+          format: int64
+          description: Slot end timestamp in UTC (milliseconds)
+        available:
+          type: boolean
+          description: Whether the slot is available for booking
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code (e.g., INVALID_REQUEST, SLOT_NOT_FOUND, SLOT_OCCUPIED)
+        message:
+          type: string
+          description: Human-readable error message
