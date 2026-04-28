@@ -1,3 +1,9 @@
+"""Calendar Booking System - FastAPI backend.
+
+Provides REST API endpoints for managing event types, generating available
+time slots, and creating/retrieving bookings. Uses in-memory storage.
+"""
+
 import os
 import uuid
 from datetime import datetime, timedelta
@@ -23,23 +29,47 @@ SLOT_DURATION_MINUTES = 30
 BOOKING_WINDOW_DAYS = 14
 
 class EventTypeCreate(BaseModel):
+    """Request body for creating a new event type.
+
+    Attributes:
+        name: Display name of the event type (e.g., "30-min consultation").
+        description: Human-readable description of the event.
+        durationMinutes: Duration of the event in minutes (e.g., 30, 60).
+    """
     name: str
     description: str
     durationMinutes: int
 
 class EventType(BaseModel):
+    """Represents an event type with its configuration.
+
+    Attributes:
+        id: Unique identifier (UUID string).
+        name: Display name of the event type.
+        description: Human-readable description of the event.
+        durationMinutes: Duration of the event in minutes.
+    """
     id: str
     name: str
     description: str
     durationMinutes: int
 
 class GuestBookingRequest(BaseModel):
+    """Request body for a guest booking.
+
+    Attributes:
+        eventTypeId: ID of the event type to book.
+        slotStart: Unix timestamp (milliseconds) of the slot start time.
+        guestName: Full name of the guest making the booking.
+        guestEmail: Email address of the guest (validated format).
+    """
     eventTypeId: str
     slotStart: int
     guestName: str
     guestEmail: EmailStr
 
 class Booking(BaseModel):
+    """Represents a confirmed booking with guest details."""
     id: str
     eventTypeId: str
     eventTypeName: str
@@ -50,11 +80,24 @@ class Booking(BaseModel):
     createdAt: int
 
 class Slot(BaseModel):
+    """Represents a time slot with availability status.
+
+    Attributes:
+        start: Unix timestamp (milliseconds) of the slot start time.
+        end: Unix timestamp (milliseconds) of the slot end time.
+        available: Whether the slot is still available for booking.
+    """
     start: int
     end: int
     available: bool
 
 class ErrorResponse(BaseModel):
+    """Standard error response body returned on API failures.
+
+    Attributes:
+        code: Machine-readable error code (e.g., "invalid_event_type").
+        message: Human-readable description of the error.
+    """
     code: str
     message: str
 
@@ -62,6 +105,20 @@ event_types_db: dict[str, EventType] = {}
 bookings_db: dict[str, Booking] = {}
 
 def generate_slots(event_type_id: str, date: str) -> list[Slot]:
+    """Generate available 30-minute time slots for a given date.
+
+    Slots are created within working hours (09:00-18:00) and filtered
+    to exclude past times and already-booked slots.
+
+    Args:
+        event_type_id: ID of the event type (used for validation context).
+        date: Target date in "YYYY-MM-DD" format.
+
+    Returns:
+        A list of Slot objects covering the working day. Each slot is marked
+        as available or already booked. Returns an empty list if the date
+        format is invalid.
+    """
     try:
         date_obj = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
@@ -94,6 +151,12 @@ def generate_slots(event_type_id: str, date: str) -> list[Slot]:
 
 @app.get("/event-types", response_model=list[EventType])
 def get_event_types():
+    """Return all public event types.
+
+    Returns:
+        A list of all event types currently stored in memory.
+        Returns an empty list if no event types have been created.
+    """
     return list(event_types_db.values())
 
 @app.get("/slots", response_model=list[Slot])
@@ -101,12 +164,30 @@ def get_slots(
     eventTypeId: str = Query(...),
     date: str = Query(...)
 ):
+    """Return available time slots for a given event type and date."""
     if eventTypeId not in event_types_db:
         raise HTTPException(status_code=400, detail="Invalid event type")
     return generate_slots(eventTypeId, date)
 
 @app.post("/bookings", response_model=Booking, status_code=201)
 def create_booking(request: GuestBookingRequest):
+    """Create a new booking for an available time slot.
+
+    Validates that the event type exists and the requested slot is not
+    already booked. The slot end time is calculated from the event type's
+    duration.
+
+    Args:
+        request: Booking request containing event type ID, slot start time,
+            guest name, and guest email.
+
+    Returns:
+        The created Booking object with a generated UUID and timestamps.
+
+    Raises:
+        HTTPException: 400 if the eventTypeId does not exist.
+        HTTPException: 409 if the slot is already booked.
+    """
     if request.eventTypeId not in event_types_db:
         raise HTTPException(status_code=400, detail="Invalid event type")
 
@@ -136,10 +217,25 @@ def create_booking(request: GuestBookingRequest):
 
 @app.get("/admin/event-types", response_model=list[EventType])
 def get_admin_event_types():
+    """Return all event types for admin view.
+
+    Identical to the public endpoint; provided for admin dashboard consistency.
+
+    Returns:
+        A list of all event types currently stored in memory.
+    """
     return list(event_types_db.values())
 
 @app.post("/admin/event-types", response_model=EventType, status_code=201)
 def create_event_type(request: EventTypeCreate):
+    """Create a new event type and store it in memory.
+
+    Args:
+        request: Event type data including name, description, and duration.
+
+    Returns:
+        The created EventType object with a generated UUID.
+    """
     event_type = EventType(
         id=str(uuid.uuid4()),
         name=request.name,
@@ -151,6 +247,14 @@ def create_event_type(request: EventTypeCreate):
 
 @app.delete("/admin/event-types/{id}", status_code=204)
 def delete_event_type(id: str):
+    """Delete an event type by ID.
+
+    Args:
+        id: UUID string of the event type to delete.
+
+    Raises:
+        HTTPException: 404 if the event type ID does not exist.
+    """
     if id not in event_types_db:
         raise HTTPException(status_code=404, detail="Event type not found")
     del event_types_db[id]
@@ -160,6 +264,16 @@ def get_admin_bookings(
     fromDate: Optional[str] = Query(None),
     toDate: Optional[str] = Query(None)
 ):
+    """Return all bookings, optionally filtered by date range.
+
+    Args:
+        fromDate: Start date filter in "YYYY-MM-DD" format (inclusive).
+        toDate: End date filter in "YYYY-MM-DD" format (inclusive).
+
+    Returns:
+        A list of Booking objects matching the date range filters.
+        If no filters are provided, returns all bookings.
+    """
     bookings = list(bookings_db.values())
 
     if fromDate:
