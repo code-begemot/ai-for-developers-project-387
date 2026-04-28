@@ -69,18 +69,7 @@ class GuestBookingRequest(BaseModel):
     guestEmail: EmailStr
 
 class Booking(BaseModel):
-    """Represents a confirmed booking with guest details.
-
-    Attributes:
-        id: Unique booking identifier (UUID string).
-        eventTypeId: ID of the booked event type.
-        eventTypeName: Human-readable name of the event type.
-        slotStart: Unix timestamp (ms) of the booking start time.
-        slotEnd: Unix timestamp (ms) of the booking end time.
-        guestName: Full name of the guest.
-        guestEmail: Email address of the guest.
-        createdAt: Unix timestamp (ms) when the booking was created.
-    """
+    """Represents a confirmed booking with guest details."""
     id: str
     eventTypeId: str
     eventTypeName: str
